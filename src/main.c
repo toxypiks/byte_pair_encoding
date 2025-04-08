@@ -8,12 +8,21 @@ typedef struct Pair {
     char pair[2];
 } Pair;
 
-typedef struct KV {
+// Hashmap
+typedef struct Freq {
     Pair key;
     size_t value;
-} KV;
+} Freq;
 
-KV *freq = NULL;
+int compare_freqs(const void *a, const void *b)
+{
+    const Freq *af = a;
+    const Freq *bf = b;
+    return (int)bf->value - (int)af->value;
+}
+
+Freq *freq = NULL;
+Freq *freqs_sorted = {0};
 
 int main(void)
 {
@@ -30,7 +39,14 @@ int main(void)
     }
 
     for (ptrdiff_t i = 0; i < hmlen(freq); ++i) {
-        printf("%c%c => %zu\n", freq[i].key.pair[0], freq[i].key.pair[1], freq[i].value);
+        arrput(freqs_sorted, freq[i]);
+    }
+
+    qsort(freqs_sorted, arrlen(freqs_sorted), sizeof(Freq), compare_freqs);
+
+    for (size_t i = 0; i < arrlen(freqs_sorted); ++i) {
+        Freq *freqs = &freqs_sorted[i];
+        printf("%c%c => %zu\n", freqs->key.pair[0], freqs->key.pair[1], freqs->value);
     }
     return 0;
 }
