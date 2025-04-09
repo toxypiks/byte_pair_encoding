@@ -6,7 +6,7 @@
 #include "stb_ds.h"
 
 typedef struct Pair {
-    uint32_t pair[2];
+    uint32_t l, r;
 } Pair;
 
 // Hashmap
@@ -32,13 +32,21 @@ int main(void)
 
     uint32_t *tokens = NULL;
 
+    Pair *pairs = NULL;
+
+    // Initialization of table
+    for (uint32_t i = 0; i < 256; ++i) {
+        arrput(pairs, ((Pair) {.l = i}));
+    }
+
     for (int i = 0; i < text_size; ++i) {
         arrput(tokens, text[i]);
     }
 
-    for (int i = 0; i < arrlen(tokens); ++i) {
+    for (size_t i = 0; i < arrlen(tokens) - 1; ++i) {
         Pair pair = {
-            .pair = {tokens[i], tokens[i+1]}
+            .l = tokens[i],
+            .r = tokens[i+1]
         };
         ptrdiff_t i = hmgeti(freq, pair);
         if (i < 0) hmput(freq, pair, 1);
@@ -49,11 +57,20 @@ int main(void)
         arrput(freqs_sorted, freq[i]);
     }
 
-    qsort(freqs_sorted, arrlen(freqs_sorted), sizeof(Freq), compare_freqs);
-
-    for (size_t i = 0; i < arrlen(freqs_sorted); ++i) {
-        Freq *freqs = &freqs_sorted[i];
-        printf("(%u, %u) => %zu\n", freqs->key.pair[0], freqs->key.pair[1], freqs->value);
+    ptrdiff_t max_index = 0;
+    for (ptrdiff_t i = 1; i < hmlen(freq); ++i) {
+        if (freq[i].value > freq[max_index].value) {
+            max_index = i;
+        }
     }
+
+    printf("(%u, %u) => %zu\n", freq[max_index].key.l, freq[max_index].key.r, freq[max_index].value);
+
+    // qsort(freqs_sorted, arrlen(freqs_sorted), sizeof(Freq), compare_freqs);
+    //
+    // for (size_t i = 0; i < arrlen(freqs_sorted); ++i) {
+    //     Freq *freqs = &freqs_sorted[i];
+    //     printf("(%u, %u) => %zu\n", freqs->key.l, freqs->key.r, freqs->value);
+    // }
     return 0;
 }
