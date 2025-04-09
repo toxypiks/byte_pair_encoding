@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
 typedef struct Pair {
-    char pair[2];
+    uint32_t pair[2];
 } Pair;
 
 // Hashmap
@@ -21,17 +22,23 @@ int compare_freqs(const void *a, const void *b)
     return (int)bf->value - (int)af->value;
 }
 
-Freq *freq = NULL;
-Freq *freqs_sorted = {0};
-
 int main(void)
 {
     const char *text = "The original BPE algorithm operates by iteratively replacing the most common contiguous sequences of characters in a target text with unused 'placeholder' bytes. The iteration ends when no sequences can be found, leaving the target text effectively compressed. Decompression can be performed by reversing this process, querying known placeholder terms against their corresponding denoted sequence, using a lookup table. In the original paper, this lookup table is encoded and stored alongside the compressed text.";
     int text_size = strlen(text);
 
+    Freq *freq = NULL;
+    Freq *freqs_sorted = NULL;
+
+    uint32_t *tokens = NULL;
+
     for (int i = 0; i < text_size; ++i) {
+        arrput(tokens, text[i]);
+    }
+
+    for (int i = 0; i < arrlen(tokens); ++i) {
         Pair pair = {
-            .pair = {text[i], text[i+1]}
+            .pair = {tokens[i], tokens[i+1]}
         };
         ptrdiff_t i = hmgeti(freq, pair);
         if (i < 0) hmput(freq, pair, 1);
@@ -46,7 +53,7 @@ int main(void)
 
     for (size_t i = 0; i < arrlen(freqs_sorted); ++i) {
         Freq *freqs = &freqs_sorted[i];
-        printf("%c%c => %zu\n", freqs->key.pair[0], freqs->key.pair[1], freqs->value);
+        printf("(%u, %u) => %zu\n", freqs->key.pair[0], freqs->key.pair[1], freqs->value);
     }
     return 0;
 }
