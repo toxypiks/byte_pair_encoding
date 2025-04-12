@@ -30,7 +30,8 @@ int main(void)
     Freq *freq = NULL;
     Freq *freqs_sorted = NULL;
 
-    uint32_t *tokens = NULL;
+    uint32_t *tokens_in = NULL;
+    uint32_t *tokens_out = NULL;
 
     Pair *pairs = NULL;
 
@@ -39,24 +40,28 @@ int main(void)
         arrput(pairs, ((Pair) {.l = i}));
     }
 
+    // Put text into token_in array
     for (int i = 0; i < text_size; ++i) {
-        arrput(tokens, text[i]);
+        arrput(tokens_in, text[i]);
     }
 
-    for (size_t i = 0; i < arrlen(tokens) - 1; ++i) {
+    // Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
+    for (size_t i = 0; i < arrlen(tokens_in) - 1; ++i) {
         Pair pair = {
-            .l = tokens[i],
-            .r = tokens[i+1]
+            .l = tokens_in[i],
+            .r = tokens_in[i+1]
         };
         ptrdiff_t i = hmgeti(freq, pair);
         if (i < 0) hmput(freq, pair, 1);
         else freq[i].value += 1;
     }
 
+    // Put pairs and occurence in freqs_sorted array
     for (ptrdiff_t i = 0; i < hmlen(freq); ++i) {
         arrput(freqs_sorted, freq[i]);
     }
 
+    // Find index of pair with max occurence in hashmap
     ptrdiff_t max_index = 0;
     for (ptrdiff_t i = 1; i < hmlen(freq); ++i) {
         if (freq[i].value > freq[max_index].value) {
@@ -66,6 +71,25 @@ int main(void)
 
     printf("(%u, %u) => %zu\n", freq[max_index].key.l, freq[max_index].key.r, freq[max_index].value);
 
+    // Put pair with max occurence in pairs array at new index (first time its index 256)
+    arrput(pairs, freq[max_index].key);
+
+    // find pair with max occurence in tokens_in and replace it with token and put it into tokens_out otherwise just put pairs into tokens_out
+    for (size_t i = 0; i < arrlen(tokens_in);) {
+        if (i + 1 >= arrlen(tokens_in)) {
+            arrput(tokens_out, tokens_in[i]);
+            i += 1;
+        } else {
+            Pair pair = {.l = tokens_in[i], .r = tokens_in[i + 1]};
+            if (memcmp(&pair, &freq[max_index].key, sizeof(pair)) == 0) {
+                arrput(tokens_out, arrlen(pairs) - 1);
+                i += 2;
+            } else {
+                arrput(tokens_out, tokens_in[i]);
+                i += 1;
+            }
+        }
+    }
     // qsort(freqs_sorted, arrlen(freqs_sorted), sizeof(Freq), compare_freqs);
     //
     // for (size_t i = 0; i < arrlen(freqs_sorted); ++i) {
