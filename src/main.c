@@ -15,6 +15,19 @@ typedef struct Freq {
     size_t value;
 } Freq;
 
+void render_tokens(Pair *pairs, uint32_t *tokens)
+{
+    for (size_t i = 0; i < arrlen(tokens); ++i) {
+        assert(tokens[i] < arrlen(pairs));
+        if (pairs[tokens[i]].l == tokens[i]) {
+            printf("%c", tokens[i]);
+        } else {
+            printf("[%u]", tokens[i]);
+        }
+    }
+    printf("\n");
+}
+
 int compare_freqs(const void *a, const void *b)
 {
     const Freq *af = a;
@@ -90,6 +103,13 @@ int main(void)
             }
         }
     }
+
+    render_tokens(pairs, tokens_in);
+    render_tokens(pairs, tokens_out);
+
+    printf("Uncompressed text size: %d\n", arrlen(tokens_in));
+    printf("Compressed text size: %d\n", arrlen(tokens_out));
+
     // qsort(freqs_sorted, arrlen(freqs_sorted), sizeof(Freq), compare_freqs);
     //
     // for (size_t i = 0; i < arrlen(freqs_sorted); ++i) {
