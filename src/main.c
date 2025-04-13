@@ -42,6 +42,18 @@ int compare_freqs(const void *a, const void *b)
         (y) = t; \
     } while (0)
 
+void generate_dot(Pair *pairs)
+{
+    printf("digraph Pairs {\n");
+    for (uint32_t token = 0; token < arrlen(pairs); ++token) {
+        if (!(token == pairs[token].l)) {
+            printf("  %u -> %u\n", token, pairs[token].l);
+            printf("  %u -> %u\n", token, pairs[token].r);
+        }
+    }
+    printf("}\n");
+}
+
 int main(void)
 {
     const char *text = "The original BPE algorithm operates by iteratively replacing the most common contiguous sequences of characters in a target text with unused 'placeholder' bytes. The iteration ends when no sequences can be found, leaving the target text effectively compressed. Decompression can be performed by reversing this process, querying known placeholder terms against their corresponding denoted sequence, using a lookup table. In the original paper, this lookup table is encoded and stored alongside the compressed text.";
@@ -66,9 +78,9 @@ int main(void)
     }
 
     for (;;) {
-        // render_tokens(pairs, tokens_in); // Render tokens throughout each compression iteration
+        //render_tokens(pairs, tokens_in); // Render tokens throughout each compression iteration
 
-        printf("%zu\n", arrlen(tokens_in));
+        //printf("%zu\n", arrlen(tokens_in));
 
         hmfree(freq);
         // Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
@@ -122,5 +134,6 @@ int main(void)
         }
         swap(uint32_t*, tokens_in, tokens_out);
     }
+    generate_dot(pairs);
     return 0;
 }
