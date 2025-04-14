@@ -60,7 +60,6 @@ int main(void)
     int text_size = strlen(text);
 
     Freq *freq = NULL;
-    Freq *freqs_sorted = NULL;
 
     uint32_t *tokens_in = NULL;
     uint32_t *tokens_out = NULL;
@@ -94,11 +93,6 @@ int main(void)
             else freq[i].value += 1;
         }
 
-        // Put pairs and occurence in freqs_sorted array
-        for (ptrdiff_t i = 0; i < hmlen(freq); ++i) {
-            arrput(freqs_sorted, freq[i]);
-        }
-
         // Find index of pair with max occurence in hashmap
         ptrdiff_t max_index = 0;
         for (ptrdiff_t i = 1; i < hmlen(freq); ++i) {
@@ -113,8 +107,7 @@ int main(void)
         arrput(pairs, freq[max_index].key);
 
         // clean up tokens_out for next compressing iteration
-        arrfree(tokens_out);
-        uint32_t *tokens_out = NULL;
+        arrsetlen(tokens_out, 0);
 
         // find pair with max occurence in tokens_in and replace it with token and put it into tokens_out otherwise just put pairs into tokens_out
         for (size_t i = 0; i < arrlen(tokens_in);) {
