@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -52,6 +53,62 @@ void generate_dot(Pair *pairs)
         }
     }
     printf("}\n");
+}
+
+bool write_entire_file(const char *file_path, const void *data, size_t size)
+{
+    bool result = true;
+
+    FILE *f = fopen(file_path, "wb");
+    if (f == NULL) {
+        goto defer;
+    }
+
+    const char *buf = data;
+    while (size > 0) {
+        size_t n = fwrite(buf, 1, size, f);
+        if (ferror(f)) {
+            goto defer;
+        }
+        size -= n;
+        buf  += n;
+    }
+    result = false;
+
+defer:
+    if (f) fclose(f);
+    return result;
+
+}
+
+bool read_entire_file(const char *file_path, void *buffer, size_t buffer_size)
+{
+    bool result = true;
+
+    FILE *f = fopen(file_path, "r");
+    if (f == NULL) {
+        goto defer;
+    }
+
+    char *buf = buffer;
+    char *n = fgets(buf, buffer_size, f);
+    if (ferror(f)) {
+        goto defer;
+    }
+    result = false;
+
+defer:
+    if (f) fclose(f);
+    return result;
+}
+
+bool dump_pairs(const char *file_path, Pair* pairs) {
+  return write_entire_file(file_path, pairs, arrlen(pairs)*sizeof(Pair));
+}
+
+bool load_pairs(const char *file_path, Pair *pairs)
+{
+    return read_entire_file(file_path, pairs, arrlen(pairs)*sizeof(Pair));
 }
 
 int main(void)
@@ -128,5 +185,7 @@ int main(void)
         swap(uint32_t*, tokens_in, tokens_out);
     }
     generate_dot(pairs);
+    if(!dump_pairs("../pairs.bin", pairs)) return 1;
+
     return 0;
 }
