@@ -2,6 +2,10 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -59,15 +63,15 @@ bool write_entire_file(const char *file_path, const void *data, size_t size)
 {
     bool result = true;
 
-    FILE *f = fopen(file_path, "wb");
-    if (f == NULL) {
+    FILE *fp = fopen(file_path, "wb");
+    if (fp == NULL) {
         goto defer;
     }
 
     const char *buf = data;
     while (size > 0) {
-        size_t n = fwrite(buf, 1, size, f);
-        if (ferror(f)) {
+        size_t n = fwrite(buf, 1, size, fp);
+        if (ferror(fp)) {
             goto defer;
         }
         size -= n;
@@ -76,40 +80,63 @@ bool write_entire_file(const char *file_path, const void *data, size_t size)
     result = false;
 
 defer:
-    if (f) fclose(f);
+    if (fp) fclose(fp);
     return result;
 
 }
 
-bool read_entire_file(const char *file_path, void *buffer, size_t buffer_size)
+int read_entire_file(const char *file_path, void **data, size_t *data_size)
 {
-    bool result = true;
+    int fd = 0;
+    struct stat statbuf = {0};
 
-    FILE *f = fopen(file_path, "r");
-    if (f == NULL) {
-        goto defer;
+    fd = open(file_path, O_RDONLY, S_IRUSR | S_IRGRP);
+    if (fd == -1)
+    {
+        printf("failed to open %s\n", file_path);
+        exit(EXIT_FAILURE);
     }
 
-    char *buf = buffer;
-    char *n = fgets(buf, buffer_size, f);
-    if (ferror(f)) {
-        goto defer;
+    if (fstat(fd, &statbuf) == -1)
+    {
+        printf("failed to fstat %s\n", file_path);
+        exit(EXIT_FAILURE);
     }
-    result = false;
 
-defer:
-    if (f) fclose(f);
-    return result;
+    *data_size = statbuf.st_size;
+    if (close(fd) == -1)
+    {
+        printf("failed to fclose %s\n", file_path);
+        exit(EXIT_FAILURE);
+    }
+
+    FILE* fp = fopen(file_path, "rb");
+    *data = malloc(*data_size);
+    size_t read_bytes = fread(*data, 1, *data_size, fp);
+    printf("read_bytes: %zu\n", read_bytes);
+
+    if (fp) fclose(fp);
 }
 
 bool dump_pairs(const char *file_path, Pair* pairs) {
   return write_entire_file(file_path, pairs, arrlen(pairs)*sizeof(Pair));
 }
 
-bool load_pairs(const char *file_path, Pair *pairs)
-{
-    return read_entire_file(file_path, pairs, arrlen(pairs)*sizeof(Pair));
-}
+//bool load_pairs(const char *file_path, Pair **pairs, char **buffer)
+//{
+//    size_t buf_len = 0;
+//    if(read_entire_file(file_path, buffer, &buf_len)) return false;
+//    if(arrlen(buffer)%sizeof(pairs) != 0) {
+//        fprintf(stderr, "ERROR: size of %s (%zu) must be divisible by %zu\n", file_path, arrlen(buffer)*sizeof(char), sizeof(pairs));
+//        return false;
+//    }
+//    Pair *items = (void*)buffer;
+//    arrsetlen(items,arrlen(buffer)/sizeof(pairs));
+//    for (size_t i = 0; i < arrlen(items); ++i) {
+//        arrput(*pairs, items[i]);
+//    }
+//    return true;
+//}
 
 int main(void)
 {
@@ -185,7 +212,20 @@ int main(void)
         swap(uint32_t*, tokens_in, tokens_out);
     }
     generate_dot(pairs);
-    if(!dump_pairs("../pairs.bin", pairs)) return 1;
-
-    return 0;
+    if(dump_pairs("../pairs.bin", pairs)) return 1;
+    char *out_buffer = NULL;
+    size_t out_buffer_size = 0;
+   // Pair *new_pairs = NULL;
+   // if(!load_pairs("../pairs.bin", &new_pairs, &out_buffer)) return 1;
+//
+   // for(size_t i = 0; i < arrlen(new_pairs); ++i) {
+   //     printf("%d", new_pairs[i].l);
+   // }
+   printf("read entire file\n");
+   read_entire_file("../pairs.bin", (void**)&out_buffer, &out_buffer_size);
+   for (size_t i = 0; i < out_buffer_size; ++i) {
+       printf("%c", out_buffer[i]);
+   }
+   printf("\n");
+   return 0;
 }
