@@ -40,18 +40,6 @@ int compare_freqs(const void *a, const void *b)
         (y) = t; \
     } while (0)
 
-void generate_dot(Pair *pairs)
-{
-    printf("digraph Pairs {\n");
-    for (uint32_t token = 0; token < arrlen(pairs); ++token) {
-        if (!(token == pairs[token].l)) {
-            printf("  %u -> %u\n", token, pairs[token].l);
-            printf("  %u -> %u\n", token, pairs[token].r);
-        }
-    }
-    printf("}\n");
-}
-
 bool write_entire_file(const char *file_path, const void *data, size_t size)
 {
     bool result = true;
@@ -153,8 +141,6 @@ int main(void)
         }
         swap(uint32_t*, tokens_in, tokens_out);
     }
-    generate_dot(pairs);
-    printf("original pairs len: %d\n", arrlen(pairs));
 
     if(dump_pairs("../pairs.bin", pairs)) return 1;
 
