@@ -122,21 +122,17 @@ bool dump_pairs(const char *file_path, Pair* pairs) {
   return write_entire_file(file_path, pairs, arrlen(pairs)*sizeof(Pair));
 }
 
-//bool load_pairs(const char *file_path, Pair **pairs, char **buffer)
-//{
-//    size_t buf_len = 0;
-//    if(read_entire_file(file_path, buffer, &buf_len)) return false;
-//    if(arrlen(buffer)%sizeof(pairs) != 0) {
-//        fprintf(stderr, "ERROR: size of %s (%zu) must be divisible by %zu\n", file_path, arrlen(buffer)*sizeof(char), sizeof(pairs));
-//        return false;
-//    }
-//    Pair *items = (void*)buffer;
-//    arrsetlen(items,arrlen(buffer)/sizeof(pairs));
-//    for (size_t i = 0; i < arrlen(items); ++i) {
-//        arrput(*pairs, items[i]);
-//    }
-//    return true;
-//}
+bool load_pairs(const char *file_path, Pair **pairs, char **buffer, size_t buf_size)
+{
+      if(read_entire_file(file_path,(void**)buffer, &buf_size) != 0) return false;
+      if(buf_size*sizeof(char)%sizeof(Pair) != 0) {
+          fprintf(stderr, "ERROR: size of %s (%zu) must be divisible by %zu\n", file_path, buf_size*sizeof(char), sizeof(Pair));
+          return false;
+      }
+      arrsetlen(*pairs,buf_size*sizeof(char)/sizeof(Pair));
+      memcpy(*pairs, buffer, buf_size*sizeof(char));
+      return true;
+}
 
 int main(void)
 {
@@ -212,20 +208,14 @@ int main(void)
         swap(uint32_t*, tokens_in, tokens_out);
     }
     generate_dot(pairs);
+    printf("original pairs len: %d\n", arrlen(pairs));
+
     if(dump_pairs("../pairs.bin", pairs)) return 1;
     char *out_buffer = NULL;
     size_t out_buffer_size = 0;
-   // Pair *new_pairs = NULL;
-   // if(!load_pairs("../pairs.bin", &new_pairs, &out_buffer)) return 1;
-//
-   // for(size_t i = 0; i < arrlen(new_pairs); ++i) {
-   //     printf("%d", new_pairs[i].l);
-   // }
-   printf("read entire file\n");
-   read_entire_file("../pairs.bin", (void**)&out_buffer, &out_buffer_size);
-   for (size_t i = 0; i < out_buffer_size; ++i) {
-       printf("%c", out_buffer[i]);
-   }
-   printf("\n");
+    Pair *new_pairs = NULL;
+
+    if(!load_pairs("../pairs.bin", &new_pairs, &out_buffer, out_buffer_size)) return 1;
+    printf("loaded pairs len: %d\n", arrlen(new_pairs));
    return 0;
 }
