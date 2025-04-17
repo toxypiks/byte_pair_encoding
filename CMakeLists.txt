@@ -14,4 +14,14 @@ add_executable(main)
 target_sources(main
  PRIVATE
   ${MAIN_SRC}
+)
+
+set(BPE2DOT_SRC
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/bpe2dot.c
+  )
+
+add_executable(bpe2dot)
+target_sources(bpe2dot
+ PRIVATE
+  ${BPE2DOT_SRC}
   )
