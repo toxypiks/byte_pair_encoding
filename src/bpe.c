@@ -70,10 +70,32 @@ bool dump_pairs(const char *file_path, Pair* pairs) {
   return write_entire_file(file_path, pairs, arrlen(pairs)*sizeof(Pair));
 }
 
-int main(void)
+void usage(const char *program_name)
 {
-    const char *text = "The original BPE algorithm operates by iteratively replacing the most common contiguous sequences of characters in a target text with unused 'placeholder' bytes. The iteration ends when no sequences can be found, leaving the target text effectively compressed. Decompression can be performed by reversing this process, querying known placeholder terms against their corresponding denoted sequence, using a lookup table. In the original paper, this lookup table is encoded and stored alongside the compressed text.";
-    int text_size = strlen(text);
+    fprintf(stderr, "Usage %s <input.txt> <output.bpe>\n", program_name);
+}
+
+int main(int argc, char **argv)
+{
+    const char *program_name = argv[0];
+
+    if (argc <= 1) {
+        usage(program_name);
+        fprintf(stderr, "ERROR: no input provided\n");
+        return 1;
+    }
+
+    const char *input_file_path = argv[1];
+
+    if (argc == 2) {
+        usage(program_name);
+        fprintf(stderr, "ERROR: no output is privided\n");
+        return 1;
+    }
+
+    const char *output_file_path = argv[2];
+
+    int text_size = strlen(input_file_path);
 
     Freq *freq = NULL;
     Pair *pairs = NULL;
@@ -88,7 +110,7 @@ int main(void)
 
     // Put text into token_in array
     for (int i = 0; i < text_size; ++i) {
-        arrput(tokens_in, text[i]);
+        arrput(tokens_in, output_file_path[i]);
     }
 
     for (;;) {
@@ -143,7 +165,7 @@ int main(void)
         swap(uint32_t*, tokens_in, tokens_out);
     }
 
-    if(dump_pairs("../pairs.bin", pairs)) return 1;
+    if(dump_pairs(output_file_path, pairs)) return 1;
 
    return 0;
 }

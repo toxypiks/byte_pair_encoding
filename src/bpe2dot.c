@@ -110,7 +110,6 @@ defer:
 
 int main(int argc, char **argv)
 {
-    Pair *pairs = NULL;
     const char* program_name = argv[0];
 
     if (argc <= 1) {
@@ -125,6 +124,7 @@ int main(int argc, char **argv)
     }
     const char* output_file_path = argv[2];
 
+    Pair *pairs = NULL;
     if(!load_pairs("../pairs.bin", &pairs)) return 1;
 
     char *dot_buffer = NULL;
