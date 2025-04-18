@@ -6,14 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(include)
 
-set(MAIN_SRC
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
+set(BPE_SRC
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/bpe.c
   )
 
-add_executable(main)
-target_sources(main
+add_executable(bpe)
+target_sources(bpe
  PRIVATE
-  ${MAIN_SRC}
+  ${BPE_SRC}
 )
 
 set(BPE2DOT_SRC
