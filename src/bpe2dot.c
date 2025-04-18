@@ -87,7 +87,7 @@ int main(int argc, char **argv)
     Pair *pairs = NULL;
     const char* program_name = argv[0];
 
-    if (argc <= 0) {
+    if (argc <= 1) {
         fprintf(stderr, "Usage: %s <input.bin> <output.dot>\n", program_name);
         fprintf(stderr, "ERROR: no input is provided\n");
     }
@@ -103,10 +103,10 @@ int main(int argc, char **argv)
 
     char *dot_buffer = NULL;
     render_dot(pairs, &dot_buffer);
-    for (size_t i = 0; i < arrlen(dot_buffer); ++i) {
-        printf("%c", dot_buffer[i]);
-    }
-    printf("\n");
+   // for (size_t i = 0; i < arrlen(dot_buffer); ++i) {
+   //     printf("%c", dot_buffer[i]);
+   // }
+   // printf("\n");
     arrfree(dot_buffer);
     return 0;
 }
