@@ -44,3 +44,11 @@ A look-up table of the replacements is required to rebuild the initial dataset.
 6. Tokens_in gets iterated to find pair with max occurence and replace it with last index of pairs look-up array in tokens_out, if current pair has no max occurce its not getting replaced and just put into tokens_out
 
 7. Tokens_in and tokens_out get swapped for next iteration
+
+#### How to use scripts
+
+1. To generate .bin file just run ./bpe after building
+2. Use generated .bin file as command line argument together with output file name when running ./bpe2dot. It will read all data from .bin file and generate a .dot file
+
+Command to execute within /build folder:
+`./bpe ../pairs.bin ../pairs.dot`
