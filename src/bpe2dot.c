@@ -82,6 +82,32 @@ void render_dot(const Pair *pairs, char **buffer)
     memcpy(*buffer+size, temp, size_end);
 }
 
+bool write_entire_file(const char *file_path, const void *data, size_t size)
+{
+    bool result = true;
+
+    FILE *fp = fopen(file_path, "wb");
+    if (fp == NULL) {
+        goto defer;
+    }
+
+    const char *buf = data;
+    while (size > 0) {
+        size_t n = fwrite(buf, 1, size, fp);
+        if (ferror(fp)) {
+            goto defer;
+        }
+        size -= n;
+        buf  += n;
+    }
+    result = false;
+
+defer:
+    if (fp) fclose(fp);
+    return result;
+
+}
+
 int main(int argc, char **argv)
 {
     Pair *pairs = NULL;
@@ -103,10 +129,8 @@ int main(int argc, char **argv)
 
     char *dot_buffer = NULL;
     render_dot(pairs, &dot_buffer);
-   // for (size_t i = 0; i < arrlen(dot_buffer); ++i) {
-   //     printf("%c", dot_buffer[i]);
-   // }
-   // printf("\n");
+    if(!write_entire_file(output_file_path, dot_buffer, arrlen(dot_buffer))) return 1;
+    printf("INFO: generated %s\n", output_file_path);
     arrfree(dot_buffer);
     return 0;
 }
