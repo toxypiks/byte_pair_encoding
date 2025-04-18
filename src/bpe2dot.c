@@ -44,32 +44,47 @@ int read_entire_file(const char *file_path, void **data, size_t *data_size)
     if (fp) fclose(fp);
 }
 
-bool load_pairs(const char *file_path, Pair **pairs, char **buffer, size_t buf_size)
+bool load_pairs(const char *file_path, Pair **pairs)
 {
-    if(read_entire_file(file_path,(void**)buffer, &buf_size) != 0) return false;
+    char* buffer = NULL;
+    size_t buf_size = 0;
+    if(read_entire_file(file_path,(void**)&buffer, &buf_size) != 0) return false;
     if(buf_size*sizeof(char)%sizeof(Pair) != 0) {
         fprintf(stderr, "ERROR: size of %s (%zu) must be divisible by %zu\n", file_path, buf_size*sizeof(char), sizeof(Pair));
         return false;
     }
-    arrsetlen(*pairs,buf_size*sizeof(char)/sizeof(Pair));
+    arrsetlen(*pairs, buf_size*sizeof(char)/sizeof(Pair));
     memcpy(*pairs, buffer, buf_size*sizeof(char));
+    free(buffer);
     return true;
 }
 
-void generate_dot(Pair *pairs)
+void render_dot(const Pair *pairs, char **buffer)
 {
-    printf("digraph Pairs {\n");
+    char temp[10000];
+    int size = sprintf(temp, "digraph Pairs {\n");
+    arrsetlen(*buffer, size);
+    memcpy(*buffer, temp, size);
     for (uint32_t token = 0; token < arrlen(pairs); ++token) {
         if (!(token == pairs[token].l)) {
-            printf("  %u -> %u\n", token, pairs[token].l);
-            printf("  %u -> %u\n", token, pairs[token].r);
+            int size_l = sprintf(temp, "  %u -> %u\n", token, pairs[token].l);
+            arrsetlen(*buffer, size + size_l);
+            memcpy(*buffer+size, temp, size_l);
+            size += size_l;
+            int size_r = sprintf(temp, "  %u -> %u\n", token, pairs[token].r);
+            arrsetlen(*buffer, size + size_r);
+            memcpy(*buffer+size, temp, size_r);
+            size += size_r;
         }
     }
-    printf("}\n");
+    int size_end = sprintf(temp, "}\n");
+    arrsetlen(*buffer, size + size_end);
+    memcpy(*buffer+size, temp, size_end);
 }
 
 int main(int argc, char **argv)
 {
+    Pair *pairs = NULL;
     const char* program_name = argv[0];
 
     if (argc <= 0) {
@@ -84,11 +99,14 @@ int main(int argc, char **argv)
     }
     const char* output_file_path = argv[2];
 
-    char *out_buffer = NULL;
-    size_t out_buffer_size = 0;
+    if(!load_pairs("../pairs.bin", &pairs)) return 1;
 
-   if(!load_pairs("../pairs.bin", &pairs, &out_buffer, out_buffer_size)) return 1;
-
-
+    char *dot_buffer = NULL;
+    render_dot(pairs, &dot_buffer);
+    for (size_t i = 0; i < arrlen(dot_buffer); ++i) {
+        printf("%c", dot_buffer[i]);
+    }
+    printf("\n");
+    arrfree(dot_buffer);
     return 0;
 }

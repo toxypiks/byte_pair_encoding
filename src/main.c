@@ -76,6 +76,7 @@ int main(void)
     int text_size = strlen(text);
 
     Freq *freq = NULL;
+    Pair *pairs = NULL;
 
     uint32_t *tokens_in = NULL;
     uint32_t *tokens_out = NULL;
