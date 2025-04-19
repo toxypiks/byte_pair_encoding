@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <bpe.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -70,6 +74,39 @@ bool dump_pairs(const char *file_path, Pair* pairs) {
   return write_entire_file(file_path, pairs, arrlen(pairs)*sizeof(Pair));
 }
 
+int read_entire_file(const char *file_path, void **data, size_t *data_size)
+{
+    int fd = 0;
+    struct stat statbuf = {0};
+
+    fd = open(file_path, O_RDONLY, S_IRUSR | S_IRGRP);
+    if (fd == -1)
+    {
+        printf("failed to open %s\n", file_path);
+        exit(EXIT_FAILURE);
+    }
+
+    if (fstat(fd, &statbuf) == -1)
+    {
+        printf("failed to fstat %s\n", file_path);
+        exit(EXIT_FAILURE);
+    }
+
+    *data_size = statbuf.st_size;
+    if (close(fd) == -1)
+    {
+        printf("failed to fclose %s\n", file_path);
+        exit(EXIT_FAILURE);
+    }
+
+    FILE* fp = fopen(file_path, "rb");
+    *data = malloc(*data_size);
+    size_t read_bytes = fread(*data, 1, *data_size, fp);
+    printf("read_bytes: %zu\n", read_bytes);
+
+    if (fp) fclose(fp);
+}
+
 void usage(const char *program_name)
 {
     fprintf(stderr, "Usage %s <input.txt> <output.bpe>\n", program_name);
@@ -95,7 +132,14 @@ int main(int argc, char **argv)
 
     const char *output_file_path = argv[2];
 
-    int text_size = strlen(input_file_path);
+    char *text = NULL;
+    size_t text_size = 0;
+    read_entire_file(input_file_path, (void**)&text, &text_size);
+
+    for (size_t i = 0; i < text_size; ++i) {
+        printf("%c", text[i]);
+    }
+    printf("\n");
 
     Freq *freq = NULL;
     Pair *pairs = NULL;
@@ -110,7 +154,7 @@ int main(int argc, char **argv)
 
     // Put text into token_in array
     for (int i = 0; i < text_size; ++i) {
-        arrput(tokens_in, output_file_path[i]);
+        arrput(tokens_in, text[i]);
     }
 
     for (;;) {
