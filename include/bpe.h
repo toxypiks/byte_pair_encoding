@@ -10,5 +10,6 @@ typedef struct Pair {
 
 int read_entire_file(const char *file_path, void **data, size_t *data_size);
 bool load_pairs(const char *file_path, Pair **pairs);
+void print_pairs(Pair** pairs);
 
 #endif // BPE_H_

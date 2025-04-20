@@ -11,8 +11,8 @@ void usage(const char *program_name)
 void render_token(Pair *pairs, uint32_t token, char **token_out)
 {
     if (token == pairs[token].l) {
-        arrsetlen(*token_out, 1);
         arrput(*token_out, (char)token);
+        int arr_last = arrlen(*token_out)-1;
         return;
     }
     render_token(pairs, pairs[token].l, token_out);
@@ -33,12 +33,14 @@ int main(int argc, char **argv)
     if(!load_pairs(input_file_path, &pairs)) return 1;
 
     char *tokens_out = NULL;
+
+    print_pairs(&pairs);
     for (uint32_t token = 0; token < arrlen(pairs); ++token) {
-         arrsetlen(tokens_out, 0);
-         render_token(pairs, token, &tokens_out);
-         arrput(tokens_out, 0);
-         printf("%zu => %s\n", token, tokens_out);
-     }
+        arrsetlen(tokens_out, 0);
+        render_token(pairs, token, &tokens_out);
+        arrput(tokens_out, 0);
+        printf("%zu => %s\n", token, tokens_out);
+    }
     arrfree(pairs);
     arrfree(tokens_out);
 

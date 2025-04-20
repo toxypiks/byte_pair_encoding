@@ -61,3 +61,14 @@ bool load_pairs(const char *file_path, Pair **pairs)
     free(buffer);
     return true;
 }
+
+void print_pairs(Pair** pairs)
+{
+    int pair_len = arrlen(*pairs);
+    if ( pair_len > 0) {
+        for (int i = 0; i < pair_len; ++i) {
+            printf("pairs[%d] l:%d r:%d\n", i, (*pairs)[i].l, (*pairs)[i].r);
+
+        }
+    }
+}
