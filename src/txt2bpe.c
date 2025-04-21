@@ -96,6 +96,15 @@ double get_secs(void)
     return (double)tp.tv_sec + (double)tp.tv_nsec*1e-9;
 }
 
+double begin_secs;
+#if 1
+    #define PROFILE_BEGIN() begin_secs = get_secs();
+    #define PROFILE_END(label) printf("%s: %lfsecs\n", (label), get_secs() - begin_secs);
+#else
+    #define PROFILE_BEGIN(...)
+    #define PROFILE_END(...)
+#endif
+
 int main(int argc, char **argv)
 {
     const char *program_name = argv[0];
@@ -142,7 +151,7 @@ int main(int argc, char **argv)
 #define REPORT_FREQ 1
         if (iteration%REPORT_FREQ == 0) report_progress(iteration, tokens_in, pairs);
 
-        double begin = get_secs();
+        PROFILE_BEGIN();
         hmfree(freq);
         // Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
         for (size_t i = 0; i < arrlen(tokens_in) - 1; ++i) {
@@ -154,9 +163,9 @@ int main(int argc, char **argv)
             if (i < 0) hmput(freq, pair, 1);
             else freq[i].value += 1;
         }
-        printf("Collecting stats: %lfsecs\n", get_secs() - begin);
+        PROFILE_END("Collecting stats\n");
 
-        begin = get_secs();
+        PROFILE_BEGIN();
         // Find index of pair with max occurence in hashmap
         ptrdiff_t max_index = 0;
         for (ptrdiff_t i = 1; i < hmlen(freq); ++i) {
@@ -164,7 +173,7 @@ int main(int argc, char **argv)
                 max_index = i;
             }
         }
-        printf("Finding most frequent pair: %lfsecs\n", get_secs() - begin);
+        PROFILE_END("Finding most frequent pair\n");
 
         if (freq[max_index].value <= 1) break; // No further compression can be done
 
@@ -174,7 +183,7 @@ int main(int argc, char **argv)
         // clean up tokens_out for next compressing iteration
         arrsetlen(tokens_out, 0);
 
-        begin = get_secs();
+        PROFILE_BEGIN();
         // find pair with max occurence in tokens_in and replace it with token and put it into tokens_out otherwise just put pairs into tokens_out
         for (size_t i = 0; i < arrlen(tokens_in);) {
             if (i + 1 >= arrlen(tokens_in)) {
@@ -191,7 +200,7 @@ int main(int argc, char **argv)
                 }
             }
         }
-        printf("Replacing most frequent pair: %lfsecs\n", get_secs() - begin);
+        PROFILE_END("Replacing most frequent pair\n");
 
         swap(uint32_t*, tokens_in, tokens_out);
     }
