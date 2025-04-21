@@ -80,6 +80,13 @@ void usage(const char *program_name)
     fprintf(stderr, "Usage %s <input.txt> <output.bpe>\n", program_name);
 }
 
+void report_progress(size_t iteration, uint32_t *tokens_in, Pair *pairs)
+{
+    printf("INFO: iteration %zu\n", iteration);
+    printf("    Text tokens count: %zu\n", arrlen(tokens_in));
+    printf("    BPE table size: %zu\n", arrlen(pairs));
+}
+
 int main(int argc, char **argv)
 {
     const char *program_name = argv[0];
@@ -102,18 +109,14 @@ int main(int argc, char **argv)
 
     char *text = NULL;
     size_t text_size = 0;
-    read_entire_file(input_file_path, (void**)&text, &text_size);
-
-    for (size_t i = 0; i < text_size; ++i) {
-        printf("%c", text[i]);
-    }
-    printf("\n");
 
     Freq *freq = NULL;
     Pair *pairs = NULL;
 
     uint32_t *tokens_in = NULL;
     uint32_t *tokens_out = NULL;
+
+    if(read_entire_file(input_file_path, (void**)&text, &text_size)) return 1;
 
     // Initialization of table
     for (uint32_t i = 0; i < 256; ++i) {
@@ -125,10 +128,10 @@ int main(int argc, char **argv)
         arrput(tokens_in, text[i]);
     }
 
-    for (;;) {
-        //render_tokens(pairs, tokens_in); // Render tokens throughout each compression iteration
-
-        //printf("%zu\n", arrlen(tokens_in));
+    size_t iteration = 0;
+    for (;; ++iteration) {
+#define REPORT_FREQ 1
+        if (iteration%REPORT_FREQ == 0) report_progress(iteration, tokens_in, pairs);
 
         hmfree(freq);
         // Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
@@ -176,8 +179,10 @@ int main(int argc, char **argv)
         }
         swap(uint32_t*, tokens_in, tokens_out);
     }
+    report_progress(iteration, tokens_in, pairs);
 
     if(dump_pairs(output_file_path, pairs)) return 1;
+    printf("INFO: generated %s\n", output_file_path);
 
    return 0;
 }
