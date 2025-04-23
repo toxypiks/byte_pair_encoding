@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -11,6 +12,7 @@
 #include <time.h>
 
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "bpe.h"
 #include "stb_ds.h"
@@ -113,50 +115,61 @@ double begin_secs;
     #define PROFILE_END(...)
 #endif
 
+#define ENABLE_THREADS
 #define THREAD_COUNT 16
 #define REPORT_FREQ 1
 #define FREQ_COLLECTION_CHUNK_SIZE (64*1024)
 uint32_t *tokens_in = NULL;
 
-Freq *freqs[THREAD_COUNT] = {0};
-pthread_t threads[THREAD_COUNT] = {0};
-
 size_t tokens_in_cursor = 0;
 pthread_mutex_t tokens_in_cursor_mutex = {0};
 
+Freq *freqs[THREAD_COUNT] = {0};
+pthread_t threads[THREAD_COUNT] = {0};
+sem_t collect_freqs_start = {0};
+pthread_barrier_t collect_freqs_stop = {0};
 
 void *freq_collector(void *arg)
 {
     size_t id = (size_t)(arg);
-    hmfree(freqs[id]);
-    while (true) {
-        size_t begin ,end;
-        pthread_mutex_lock(&tokens_in_cursor_mutex);
-        if (tokens_in_cursor + FREQ_COLLECTION_CHUNK_SIZE <= arrlen(tokens_in)) {
-            begin = tokens_in_cursor;
-            tokens_in_cursor += FREQ_COLLECTION_CHUNK_SIZE;
-            end = tokens_in_cursor;
-        } else {
-            begin = tokens_in_cursor;
-            tokens_in_cursor = arrlen(tokens_in);
-            end = tokens_in_cursor;
-        }
-        if (end <= begin) {
-            pthread_mutex_unlock(&tokens_in_cursor_mutex);
-            return NULL;
-        }
-        pthread_mutex_unlock(&tokens_in_cursor_mutex);
 
-        for (size_t i = begin; i < end; ++i) {
-            if (i + 1 >= arrlen(tokens_in)) break;
-            Pair pair = {
-                .l = tokens_in[i],
-                .r = tokens_in[i + 1]
-            };
-            ptrdiff_t place = hmgeti(freqs[id], pair);
-            if (place < 0) hmput(freqs[id], pair, 1);
-            else freqs[id][place].value += 1;
+    while (true) {
+        int ret = sem_wait(&collect_freqs_start);
+        if (ret == -1) {
+            fprintf(stderr, "ERROR: could not wait on semaphore: %s\n", strerror(errno));
+            exit(1);
         }
+        hmfree(freqs[id]);
+        while (true) {
+            size_t begin ,end;
+            pthread_mutex_lock(&tokens_in_cursor_mutex);
+            if (tokens_in_cursor + FREQ_COLLECTION_CHUNK_SIZE <= arrlen(tokens_in)) {
+                begin = tokens_in_cursor;
+                tokens_in_cursor += FREQ_COLLECTION_CHUNK_SIZE;
+                end = tokens_in_cursor;
+            } else {
+                begin = tokens_in_cursor;
+                tokens_in_cursor = arrlen(tokens_in);
+                end = tokens_in_cursor;
+            }
+            if (end <= begin) {
+                pthread_mutex_unlock(&tokens_in_cursor_mutex);
+                break;
+            }
+            pthread_mutex_unlock(&tokens_in_cursor_mutex);
+
+            for (size_t i = begin; i < end; ++i) {
+                if (i + 1 >= arrlen(tokens_in)) break;
+                Pair pair = {
+                    .l = tokens_in[i],
+                    .r = tokens_in[i + 1]
+                };
+                ptrdiff_t place = hmgeti(freqs[id], pair);
+                if (place < 0) hmput(freqs[id], pair, 1);
+                else freqs[id][place].value += 1;
+            }
+        }
+        pthread_barrier_wait(&collect_freqs_stop);
     }
     UNREACHABLE("freq_collector");
 }
@@ -201,19 +214,44 @@ int main(int argc, char **argv)
         arrput(tokens_in, text[i]);
     }
 
+  #ifdef ENABLE_THREADS
+
     int ret = pthread_mutex_init(&tokens_in_cursor_mutex, NULL);
     if (ret != 0) {
-        fprintf(stderr, "ERROR: could not initialize mutex: %s\n", strerror(ret));
+        fprintf(stderr, "ERROR: could not initialize tokens_in_cursor_mutex: %s\n", strerror(ret));
         return 1;
     }
+    ret = sem_init(&collect_freqs_start, 0, 0);
+    if (ret != 0) {
+        fprintf(stderr, "ERROR: could not initialize collect_freqs_start: %s\n", strerror(ret));
+        return 1;
+    }
+
+    ret = pthread_barrier_init(&collect_freqs_stop, NULL, THREAD_COUNT + 1);
+    if (ret != 0) {
+        fprintf(stderr, "ERROR: could not initialize collect_freqs_stop: %s\n", strerror(ret));
+        return 1;
+    }
+
+    for (size_t id = 0; id < THREAD_COUNT; ++id) {
+        ret = pthread_create(&threads[id], NULL, freq_collector, (void*)id);
+        if (ret != 0) {
+            fprintf(stderr, "ERROR: could not create thread: %s\n", strerror(ret));
+            return 1;
+        }
+    }
+#endif // ENABLE_THREADS
+
+
     size_t iteration = 0;
     for (; iteration < 1; ++iteration) {
         if (iteration%REPORT_FREQ == 0) report_progress(iteration, tokens_in, pairs);
 
         PROFILE_BEGIN();
-#if 0
-        hmfree(merged_freq);
-        // Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
+            hmfree(merged_freq);
+    #ifndef ENABLE_THREADS
+
+    // Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
         for (size_t i = 0; i < arrlen(tokens_in) - 1; ++i) {
             Pair pair = {
                 .l = tokens_in[i],
@@ -223,22 +261,15 @@ int main(int argc, char **argv)
             if (place < 0) hmput(merged_freq, pair, 1);
             else merged_freq[place].value += 1;
         }
-#else
+    #else
+        pthread_mutex_lock(&tokens_in_cursor_mutex);
         tokens_in_cursor = 0;
-        for(size_t id = 0; id < THREAD_COUNT; ++id) {
-            int ret = pthread_create(&threads[id], NULL, freq_collector, (void*)id);
-            if (ret != 0) {
-                fprintf(stderr, "ERROR: could not create thread: %s\n", strerror(ret));
-                return 1;
-            }
-        }
+        pthread_mutex_unlock(&tokens_in_cursor_mutex);
+
+        for(size_t i = 0; i < THREAD_COUNT; ++i) sem_post(&collect_freqs_start);
+        pthread_barrier_wait(&collect_freqs_stop);
 
         for(size_t id = 0; id < THREAD_COUNT; ++id) {
-            int ret = pthread_join(threads[id], NULL);
-            if (ret != 0) {
-                fprintf(stderr, "ERROR: could not join thread: %s\n", strerror(ret));
-                return 1;
-            }
             size_t n = hmlen(freqs[id]);
             for (size_t i = 0; i < n; ++i) {
                 Pair key = freqs[id][i].key;
@@ -248,10 +279,11 @@ int main(int argc, char **argv)
             }
         }
 
-#endif
+    #endif
         PROFILE_END("Collecting stats\n");
 
         PROFILE_BEGIN();
+
         // Find index of pair with max occurence in hashmap
         ptrdiff_t max_index = 0;
         for (ptrdiff_t i = 1; i < hmlen(merged_freq); ++i) {
@@ -266,10 +298,11 @@ int main(int argc, char **argv)
         // Put pair with max occurence in pairs array at new index (first time its index 256)
         arrput(pairs, merged_freq[max_index].key);
 
+        PROFILE_BEGIN();
+
         // clean up tokens_out for next compressing iteration
         arrsetlen(tokens_out, 0);
 
-        PROFILE_BEGIN();
         // find pair with max occurence in tokens_in and replace it with token and put it into tokens_out otherwise just put pairs into tokens_out
         for (size_t i = 0; i < arrlen(tokens_in);) {
             if (i + 1 >= arrlen(tokens_in)) {
