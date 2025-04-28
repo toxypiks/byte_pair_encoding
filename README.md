@@ -49,3 +49,8 @@ A look-up table of the replacements is required to rebuild the initial dataset.
 
 1. To generate a compressed .bpe binary file from a given text file run `./txt2bpe <input.txt> <output.bpe>`
 2. To generate .dot file from .bpe file run `./bpe2dot <input.bpe> <output.dot>`
+
+
+#### Faster Algorithm approach
+
+Instead of creating a new freq hash table through each compression iteration, it gets updated while replacing the most frequent pair in the input text with a token.
