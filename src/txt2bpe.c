@@ -242,45 +242,44 @@ int main(int argc, char **argv)
     }
 #endif // ENABLE_THREADS
 
+    PROFILE_BEGIN();
+            //hmfree(merged_freq);
+#ifndef ENABLE_THREADS
+
+// Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
+    for (size_t i = 0; i < arrlen(tokens_in) - 1; ++i) {
+        Pair pair = {
+            .l = tokens_in[i],
+            .r = tokens_in[i+1]
+        };
+        ptrdiff_t place = hmgeti(merged_freq, pair);
+        if (place < 0) hmput(merged_freq, pair, 1);
+        else merged_freq[place].value += 1;
+    }
+#else
+    pthread_mutex_lock(&tokens_in_cursor_mutex);
+    tokens_in_cursor = 0;
+    pthread_mutex_unlock(&tokens_in_cursor_mutex);
+
+    for(size_t i = 0; i < THREAD_COUNT; ++i) sem_post(&collect_freqs_start);
+    pthread_barrier_wait(&collect_freqs_stop);
+
+    for(size_t id = 0; id < THREAD_COUNT; ++id) {
+        size_t n = hmlen(freqs[id]);
+        for (size_t i = 0; i < n; ++i) {
+            Pair key = freqs[id][i].key;
+            ptrdiff_t place = hmgeti(merged_freq, key);
+            if (place < 0) hmputs(merged_freq, freqs[id][i]);
+            else merged_freq[place].value += freqs[id][i].value;
+        }
+    }
+
+#endif
+    PROFILE_END("Collecting stats\n");
 
     size_t iteration = 0;
     for (; iteration < 1; ++iteration) {
         if (iteration%REPORT_FREQ == 0) report_progress(iteration, tokens_in, pairs);
-
-        PROFILE_BEGIN();
-            hmfree(merged_freq);
-    #ifndef ENABLE_THREADS
-
-    // Put two chars of token_in into Pair and put in Hashmap if not already there, if there increment counter for pair in hashmap (value)
-        for (size_t i = 0; i < arrlen(tokens_in) - 1; ++i) {
-            Pair pair = {
-                .l = tokens_in[i],
-                .r = tokens_in[i+1]
-            };
-            ptrdiff_t place = hmgeti(merged_freq, pair);
-            if (place < 0) hmput(merged_freq, pair, 1);
-            else merged_freq[place].value += 1;
-        }
-    #else
-        pthread_mutex_lock(&tokens_in_cursor_mutex);
-        tokens_in_cursor = 0;
-        pthread_mutex_unlock(&tokens_in_cursor_mutex);
-
-        for(size_t i = 0; i < THREAD_COUNT; ++i) sem_post(&collect_freqs_start);
-        pthread_barrier_wait(&collect_freqs_stop);
-
-        for(size_t id = 0; id < THREAD_COUNT; ++id) {
-            size_t n = hmlen(freqs[id]);
-            for (size_t i = 0; i < n; ++i) {
-                Pair key = freqs[id][i].key;
-                ptrdiff_t place = hmgeti(merged_freq, key);
-                if (place < 0) hmputs(merged_freq, freqs[id][i]);
-                else merged_freq[place].value += freqs[id][i].value;
-            }
-        }
-
-    #endif
-        PROFILE_END("Collecting stats\n");
 
         PROFILE_BEGIN();
 
@@ -296,7 +295,9 @@ int main(int argc, char **argv)
         if (merged_freq[max_index].value <= 1) break; // No further compression can be done
 
         // Put pair with max occurence in pairs array at new index (first time its index 256)
-        arrput(pairs, merged_freq[max_index].key);
+        Pair max_pair = merged_freq[max_index].key;
+        uint32_t max_token = arrlen(pairs);
+        arrput(pairs, max_pair);
 
         PROFILE_BEGIN();
 
@@ -310,9 +311,45 @@ int main(int argc, char **argv)
                 i += 1;
             } else {
                 Pair pair = {.l = tokens_in[i], .r = tokens_in[i + 1]};
-                if (memcmp(&pair, &merged_freq[max_index].key, sizeof(pair)) == 0) {
-                    arrput(tokens_out, arrlen(pairs) - 1);
+                if (memcmp(&pair, &max_pair, sizeof(pair)) == 0) {
+                    ptrdiff_t place;
+                    //left part
+                    if (arrlen(tokens_out) > 0) {
+                        pair.l = tokens_out[arrlen(tokens_out) - 1];
+                        pair.r = tokens_in[i];
+                        place = hmgeti(merged_freq, pair);
+                        assert(place >= 0);
+                        assert(merged_freq[place].value > 0);
+                        merged_freq[place].value -= 1;
+
+                        pair.r = max_token;
+                        place = hmgeti(merged_freq, pair);
+                        if (place < 0) hmput(merged_freq, pair, 1);
+                        else merged_freq[place].value += 1;
+                    }
+                    //middle part
+                    place = hmgeti(merged_freq, max_pair);
+                    assert(place >= 0);
+                    assert(merged_freq[place].value > 0);
+                    merged_freq[place].value -= 1;
+                    arrput(tokens_out, max_token);
                     i += 2;
+
+                    //right part
+                    if (i >= arrlen(tokens_in)) {
+                        pair.r = tokens_in[i];
+
+                        pair.l = tokens_in[i - 1];
+                        place = hmgeti(merged_freq, pair);
+                        assert(place >= 0);
+                        assert(merged_freq[place].value > 0);
+                        merged_freq[place].value -= 1;
+
+                        pair.l = tokens_out[arrlen(tokens_out) - 1];
+                        ptrdiff_t place = hmgeti(merged_freq, pair);
+                        if (place < 0) hmput(merged_freq, pair, 1);
+                        else merged_freq[place].value += 1;
+                    }
                 } else {
                     arrput(tokens_out, tokens_in[i]);
                     i += 1;
